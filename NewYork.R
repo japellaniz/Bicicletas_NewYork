@@ -109,7 +109,6 @@ colnames(dfStations) = c("station.id", "station.name", "station.latitude", "stat
 
 write.csv(dfStations, "dat/stations.csv")
 
-rm(dfSipAve)
 rm(dfSipAveStart)
 rm(dfSipAveEnd)
 rm(dfStationsStart)
@@ -231,13 +230,13 @@ aggr_plot <- aggr(df, col=c('navyblue','red'), numbers=TRUE, sortVars=FALSE,
 # 10 iteraciones y 5 imputaciones múltiples
 # Solo pueden ser varibles numéricas
 str(df)
-temp = mice(df[,-c(2,3,7,9)],
+temp = mice::mice(df[,-c(2,3,7,9)],
             m = 5, maxit = 10,
             method = "pmm", seed = 1234)
 summary(temp) # Resumen del proceso
 
 # Eligimos uno de los "m" (5) conjuntos generados:
-df41 = complete(temp, 1) # Por ejemplo, el 1. O bien 2, 3, 4 o 5 (a elegir)
+df41 = mice::complete(temp, 1) # Por ejemplo, el 1. O bien 2, 3, 4 o 5 (a elegir)
 
 # Comparar el data frame original con el elegido imputado:
 summary(df)
@@ -251,4 +250,11 @@ plot(y = df41$tripduration, x = df$birth.year,
      main = "Trip duration(dataset sin NA)",
      xlab = "Año", ylab = "secs", col = "green"); grid()
 
+df$tripduration <- df41$tripduration
+df$start.station.id <- df41$start.station.id
+df$end.station.id <- df41$end.station.id
+df$bikeid <- df41$bikeid
+df$birth.year <- df41$birth.year
 
+
+readr::write_csv(df,"dat/bike_nyc_1_6_2019.csv")
