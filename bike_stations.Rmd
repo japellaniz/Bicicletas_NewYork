@@ -34,8 +34,40 @@ usuarios <- rutas %>% dplyr::select(birth.year,gender) %>%
   dplyr::mutate(contador = n()) %>% 
   dplyr::group_by(age,gender,contador) %>% 
   dplyr::summarise()
+
+usuarios %>% ggplot2::ggplot(ggplot2::aes(x = age, y = contador,fill=gender))+
+      ggplot2::geom_col()
+
+
+```
+
+Los de género "unknown" son pocos y además hay un valor absurdo para la edad de 51 años.
+Eliminamos los "unknown" y volvemos a sacar la gráfica.
+
+```{r}
+usuarios %>% dplyr::filter(gender!="unknown") %>% 
+  ggplot2::ggplot(ggplot2::aes(x = age, y = contador,fill=gender))+
+  ggplot2::geom_col()
+```
+
+Se ve que hay un uso del servicio de bicis mucho mayor por parte de hombres que de mujeres.
+La franja de edad de mayor uso está entre los 31 y los 34 años.
+
+Vamos a ver sólo las mujeres.
+
+```{r}
+usuarios %>% dplyr::filter(gender=="female") %>% 
+  ggplot2::ggplot(ggplot2::aes(x = age, y = contador))+
+  ggplot2::geom_col()+
+  ggplot2::theme_bw()
   
+```
 
+Y los hombres...
 
+```{r}
+usuarios %>% dplyr::filter(gender=="male") %>% 
+  ggplot2::ggplot(ggplot2::aes(x = age, y = contador))+
+  ggplot2::geom_col()
 ```
 
