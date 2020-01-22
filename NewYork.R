@@ -1,7 +1,7 @@
-# ###############################################################################################
-# Proyecto bicicletas New York ##################################################################
-#################################################Jose Luis Apellániz############################
-################################################################################################
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Proyecto bicicletas New York +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#+++++++++++++++++++++++++++++++++Jose Luis Apellániz+++++++++++++++++++++++++++++++++++++++++++++
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 # The data includes:
 # Trip Duration (seconds)
@@ -20,18 +20,22 @@
 #trips that are taken to/from any of our “test” stations (which we were using more in June and July 2013), 
 #and any trips that were below 60 seconds in length (potentially false starts or users trying to re-dock a bike 
 #to ensure it's secure).
-
+# LED ####
+{
 cat("\014")
 rm(list = ls())
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 getwd()
 dir()
-
-####################################################################################
+library(dplyr)
+library(tibble)
+}
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # 1.- Importación de datos: parsing y formatos de variables (continuas, categóricas, 
 # fechas, etc.)
-###################################################################################
-
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Import Data ####
+{
 df = data.frame()
 for (i in 1:6) {
   filecsv = paste0("dat/JC-20190", i,"-citibike-tripdata.csv")
@@ -40,9 +44,10 @@ for (i in 1:6) {
 }
 summary(df)
 str(df)
-
+}
+# Clean/Prepare Data ####
 # Cambio de formatos de variables
-
+{
 # Campos tipo fecha.
 df$starttime = as.POSIXct(df$starttime, format="%Y-%m-%d %H:%M:%OS")
 head(format(df$starttime, "%Y-%m-%d %H:%M:%OS4"))
@@ -62,16 +67,15 @@ table(df$gender)
 df$gender = droplevels(df$gender)
 str(df)
 summary(df)
-
+}
 # Las estaciones: los valores de id, name y long-lat siempre son los mismos para las
 # estaciones. Eliminamos las columnas redundantes y creamos una tabla de estaciones aparte.
-
+{
 dfStationsStart = unique(df[, c(4,5,6,7)])
 dfStationsEnd = unique(df[, c(8,9,10,11)])
 colnames(dfStationsStart) = c("station.id", "station.name", "station.latitude", "station.longitude")
 colnames(dfStationsEnd) = c("station.id", "station.name", "station.latitude", "station.longitude")
-library(dplyr)
-library(tibble)
+
 dfStations = right_join(dfStationsStart, dfStationsEnd, by = "station.id")
 # dfStations tiene 88 estaciones cuando el máximo debia ser 85
 df %>% count(df$start.station.id)
@@ -120,14 +124,15 @@ str(df)
 df = df[,c(-5,-6,-7,-9,-10,-11)]
 str(df)
 summary(df)
+}
 
-
-################################################################################
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # 2.- Estadísticos básicos para identificación de valores faltantes.
-################################################################################
-
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Missing Values ####
+{
 # Utilizamos función de R Bloggers para calcular el PORCENTAJE de valores
-# perdidos de cada variable:
+# perdidos de cada variable
 pMissed = function(x) {sum(is.na(x))/length(x)*100}
 apply(X = df, MARGIN = 2, FUN = pMissed)
 
@@ -135,13 +140,16 @@ apply(X = df, MARGIN = 2, FUN = pMissed)
 df = df[complete.cases(df$starttime), ]
 
 apply(X = df, MARGIN = 2, FUN = pMissed) # Desaparecen todos los NAs
+}
 
-#########################################################################################
+
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # 3.- Identificación de valores extremos 
-#########################################################################################
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # Tratamiento de valores extremos - Outliers 
 # Vemos la distribución de las variables numéricas
-
+# Outliers ####
+{
 par(las=2,mfrow=c(1,2))
 boxplot(df$tripduration, xlab = "Trip duration")
 boxplot(df$birth.year, xlab = "Birth year")
@@ -151,7 +159,8 @@ library(ggplot2)
 plot(prop.table(table(df$birth.year)))
 g = ggplot(df,aes(df$birth.year))
 g+geom_density()
-
+}
+{
 outliers_age = boxplot.stats(df$birth.year)$out
 boxplot(df$birth.year,boxwex=0.1)
 
@@ -171,7 +180,8 @@ x %>% summary()
 
 df$birth.year = x
 
-
+}
+{
 # Outliers de tripduration.
 df11 = df
 
@@ -181,13 +191,13 @@ g+geom_density()
 
 outliers_age = boxplot.stats(df11$tripduration)$out
 boxplot(df11$tripduration,boxwex=0.1)
-
 # creamos un campo nuevo difftime como diferencia entre stoptime y starttime para
 # ver si sigue la misma distribucón que tripduration
 for (i in 1:nrow(df11)) {
       df11$difftime[i] = as.numeric(difftime(df11$stoptime[i], df11$starttime[i], units = "secs"))
+  }
 }
-
+{
 summary(df11$tripduration)
 summary(df11$difftime)
 
@@ -212,20 +222,21 @@ df$tripduration = x
 summary(df)
 
 rm(df11)
-
-##########################################################################################
+}
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # 4.- Imputación de valores faltantes.
-##########################################################################################
-
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Imputación de NA's ####
+{
 library(VIM)
 par(mfrow=c(1,1))
 aggr_plot <- aggr(df, col=c('navyblue','red'), numbers=TRUE, sortVars=FALSE, 
                   labels=names(df), cex.axis=.7, gap=3,
                   ylab=c("Histograma de valores perdidos","Patron"))
+}
 
-
-
-# ####### IMPUTACIÓN MULTIPLE (con paquete "mice") ###########################
+{
+# +++++ IMPUTACIÓN MULTIPLE (con paquete "mice") +++++++++++++++++++++++++++++++
 # Vamos a utilizar el método de Predictive mean matching (PMM)
 # 10 iteraciones y 5 imputaciones múltiples
 # Solo pueden ser varibles numéricas
@@ -241,7 +252,8 @@ df41 = mice::complete(temp, 1) # Por ejemplo, el 1. O bien 2, 3, 4 o 5 (a elegir
 # Comparar el data frame original con el elegido imputado:
 summary(df)
 summary(df41) # Ya no hay NAs, los hemos imputado
-
+}
+{
 par(mfrow = c(2,1))
 plot(y = df$tripduration, x = df$birth.year,
      main = "Trip duration(dataset con NA)",
@@ -258,3 +270,4 @@ df$birth.year <- df41$birth.year
 
 
 readr::write_csv(df,"dat/bike_nyc_1_6_2019.csv")
+}

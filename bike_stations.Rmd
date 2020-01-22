@@ -4,7 +4,7 @@ output: html_notebook
 ---
 
 Veamos las ubicaciones de las estaciones en un mapa de la ciudad.
-
+# Mapa Stations
 ```{r}
 library(leaflet)
 library(magrittr)
@@ -23,7 +23,7 @@ m %>% addCircles(color = "red",radius=5, opacity = T ) %>% addMarkers(popup = ~h
 ```
 
 Usuarios por edades y género.
-
+# Análisis de usuarios
 ```{r}
 rutas <- readr::read_csv("dat/bike_nyc_1_6_2019.csv")
 colnames(rutas)
@@ -69,5 +69,49 @@ Y los hombres...
 usuarios %>% dplyr::filter(gender=="male") %>% 
   ggplot2::ggplot(ggplot2::aes(x = age, y = contador))+
   ggplot2::geom_col()
+```
+
+Veamos la distribución que sigue la duración de los viajes.
+
+```{r}
+rutas %>% dplyr::select(tripduration) %>% 
+  ggplot2::ggplot(ggplot2::aes(x=tripduration))+
+  ggplot2::geom_density()
+
+```
+
+Veamos com se distribuye la duración media de los viajes.
+```{r}
+resumen_rutas <- rutas %>% tidyr::unite(ruta, start.station.id,end.station.id,sep="-") %>% 
+  dplyr::group_by(ruta) %>% 
+  dplyr::summarise(contador = dplyr::n(),
+                   avgTrip = mean(tripduration)) %>%
+  dplyr::arrange(desc(avgTrip)) %>% 
+  dplyr::ungroup()
+
+resumen_rutas %>% dplyr::select(avgTrip) %>% 
+  ggplot2::ggplot(ggplot2::aes(x=avgTrip))+
+  ggplot2::geom_density()
+  
+summary(resumen_rutas$avgTrip) 
+```
+```{r}
+stations_geo <- stations %>% 
+  tidyr::unite(lat_long,latitude,longitude,sep="+")
+
+
+rutas_geo <- rutas %>% 
+  dplyr::full_join(stations_geo,by=c("start.station.id"="station.id")) %>% 
+  dplyr::rename(origin_lat_long=lat_long) %>% 
+  dplyr::full_join(stations_geo,by=c("end.station.id"="station.id")) %>% 
+  dplyr::rename(end_lat_long=lat_long,station.name.ori=station.name.x,station.name.end=station.name.y) %>% 
+  dplyr::select(-c(10,13)) %>% 
+  tidyr::unite(ruta, start.station.id,end.station.id,sep="-")
+
+  
+results <- gmapsdistance::gmapsdistance(rutas_geo$origin_lat_long[1],rutas_geo$end_lat_long[1],mode="bicycling")
+
+
+
 ```
 
