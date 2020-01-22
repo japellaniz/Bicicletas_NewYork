@@ -178,7 +178,7 @@ bicis %>% dplyr::select(tiempo_uso) %>%
 summary(bicis$tiempo_uso)
 
 ```
-
+A ver como evoluciona el uso por meses...
 
 ```{r}
 rutas_mes <- rutas_geo %>% 
