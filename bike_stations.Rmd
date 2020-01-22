@@ -14,11 +14,14 @@ colnames(stations)
 colnames(stations) <- c("X1","station.id","station.name","latitude","longitude")
 names(providers)
 leaflet(options = leafletOptions(minZoom = 0, maxZoom = 18))
-m <- leaflet(stations) %>% addTiles() %>% addProviderTiles(providers$MtbMap) %>%
+m1 <- leaflet(stations) %>% 
+  addTiles() %>% addProviderTiles(providers$MtbMap) %>%
   addProviderTiles(providers$Stamen.TonerLines,
     options = providerTileOptions(opacity = 0.35)) %>%
   addProviderTiles(providers$Stamen.TonerLabels) 
-m %>% addCircles(color = "red",radius=5, opacity = T ) %>% addMarkers(popup = ~htmltools::htmlEscape(station.name)) 
+m1 %>% 
+  addCircles(color = "red",radius=5, opacity = T ) %>% 
+  addMarkers(popup = ~htmltools::htmlEscape(station.name))
 
 ```
 
@@ -28,11 +31,11 @@ Usuarios por edades y género.
 rutas <- readr::read_csv("dat/bike_nyc_1_6_2019.csv")
 colnames(rutas)
 
-usuarios <- rutas %>% dplyr::select(birth.year,gender) %>% 
+usuarios <- rutas %>% dplyr::select(birth.year,gender,usertype) %>% 
   dplyr::mutate(age = lubridate::year(Sys.Date())-birth.year) %>% 
-  dplyr::group_by(age,gender) %>% 
+  dplyr::group_by(age,gender,usertype) %>% 
   dplyr::mutate(contador = n()) %>% 
-  dplyr::group_by(age,gender,contador) %>% 
+  dplyr::group_by(age,gender,contador,usertype) %>% 
   dplyr::summarise()
 
 usuarios %>% ggplot2::ggplot(ggplot2::aes(x = age, y = contador,fill=gender))+
@@ -53,11 +56,11 @@ usuarios %>% dplyr::filter(gender!="unknown") %>%
 Se ve que hay un uso del servicio de bicis mucho mayor por parte de hombres que de mujeres.
 La franja de edad de mayor uso está entre los 31 y los 34 años.
 
-Vamos a ver sólo las mujeres.
+Vamos a ver sólo las mujeres junto al tipo de usuario.
 
 ```{r}
 usuarios %>% dplyr::filter(gender=="female") %>% 
-  ggplot2::ggplot(ggplot2::aes(x = age, y = contador))+
+  ggplot2::ggplot(ggplot2::aes(x = age, y = contador, fill=usertype))+
   ggplot2::geom_col()+
   ggplot2::theme_bw()
   
@@ -67,9 +70,10 @@ Y los hombres...
 
 ```{r}
 usuarios %>% dplyr::filter(gender=="male") %>% 
-  ggplot2::ggplot(ggplot2::aes(x = age, y = contador))+
+  ggplot2::ggplot(ggplot2::aes(x = age, y = contador, fill=usertype))+
   ggplot2::geom_col()
 ```
+
 
 Veamos la distribución que sigue la duración de los viajes.
 
@@ -80,7 +84,8 @@ rutas %>% dplyr::select(tripduration) %>%
 
 ```
 
-Veamos com se distribuye la duración media de los viajes.
+Veamos comose distribuye la duración media de los viajes y la relación entre dicha duración media y
+la frecuencia de uso de las rutas.
 ```{r}
 resumen_rutas <- rutas %>% tidyr::unite(ruta, start.station.id,end.station.id,sep="-") %>% 
   dplyr::group_by(ruta) %>% 
@@ -92,7 +97,16 @@ resumen_rutas <- rutas %>% tidyr::unite(ruta, start.station.id,end.station.id,se
 resumen_rutas %>% dplyr::select(avgTrip) %>% 
   ggplot2::ggplot(ggplot2::aes(x=avgTrip))+
   ggplot2::geom_density()
-  
+
+resumen_rutas %>% 
+  ggplot2::ggplot()+
+  ggplot2::geom_point(ggplot2::aes(x=avgTrip,y=contador))+
+  ggplot2::geom_smooth(ggplot2::aes(x=avgTrip,y=contador))
+
+resumen_rutas %>% 
+  ggplot2::ggplot()+
+  ggplot2::geom_smooth(ggplot2::aes(x=avgTrip,y=contador))
+
 summary(resumen_rutas$avgTrip) 
 ```
 ```{r}
@@ -101,17 +115,81 @@ stations_geo <- stations %>%
 
 
 rutas_geo <- rutas %>% 
-  dplyr::full_join(stations_geo,by=c("start.station.id"="station.id")) %>% 
+  dplyr::right_join(stations_geo,by=c("start.station.id"="station.id")) %>% 
   dplyr::rename(origin_lat_long=lat_long) %>% 
-  dplyr::full_join(stations_geo,by=c("end.station.id"="station.id")) %>% 
+  dplyr::right_join(stations_geo,by=c("end.station.id"="station.id")) %>% 
   dplyr::rename(end_lat_long=lat_long,station.name.ori=station.name.x,station.name.end=station.name.y) %>% 
   dplyr::select(-c(10,13)) %>% 
   tidyr::unite(ruta, start.station.id,end.station.id,sep="-")
 
+
+
+
+
+
+```
+
+
+Estaciones con más uso (80% de los usos)
+```{r}
+start_stations <- rutas_geo %>%
+  dplyr::group_by(station.name.ori) %>% 
+  dplyr::summarise(cont = n()) %>%
+  dplyr::arrange(desc(cont)) %>% 
+  dplyr::mutate(acumulado=cumsum(cont)) %>% 
+  dplyr::inner_join(stations,c("station.name.ori"="station.name")) %>% 
+  dplyr::filter(acumulado<0.8*nrow(rutas_geo))
+
+end_stations <- rutas_geo %>%
+  dplyr::group_by(station.name.end) %>% 
+  dplyr::summarise(cont = n()) %>% 
+  dplyr::arrange(desc(cont)) %>% 
+  dplyr::mutate(acumulado=cumsum(cont)) %>% 
+  dplyr::inner_join(stations,by=c("station.name.end"="station.name")) %>% 
+  dplyr::filter(acumulado<0.8*nrow(rutas_geo))
+
+start_stations %>% 
+  ggplot2::ggplot(ggplot2::aes(x = reorder(station.name.ori,cont),y=cont))+
+  ggplot2::geom_col()+
+  ggplot2::coord_flip()
+
+end_stations %>% 
+  ggplot2::ggplot(ggplot2::aes(x = reorder(station.name.end,cont),y=cont))+
+  ggplot2::geom_col()+
+  ggplot2::coord_flip()
+
+
+```
+Hay 26 estaciones de origen y 25 de destino que tienen el 80% de los usos. Por encima de todas
+destaca Grove St PATH.
+
+Vamos a ver como se distribuye el tiempo total de uso por bicicleta.
+```{r}
+bicis <- rutas %>% 
+  dplyr::group_by(bikeid) %>% 
+  dplyr::summarise(tiempo_uso=sum(tripduration)) %>% 
+  dplyr::arrange(desc(tiempo_uso))
+
+bicis %>% dplyr::select(tiempo_uso) %>% 
+  ggplot2::ggplot(ggplot2::aes(x=tiempo_uso))+
+  ggplot2::geom_density()+
+  ggplot2::coord_cartesian(xlim = c(370, 200000))
+
+summary(bicis$tiempo_uso)
+
+```
+
+
+```{r}
+rutas_mes <- rutas_geo %>% 
+  dplyr::mutate(mes=lubridate::month(starttime)) %>% 
+  dplyr::group_by(mes) %>%
+  dplyr::filter(mes %in% c(1:6)) %>% 
+  dplyr::summarise(tiempo_uso=sum(tripduration))
+
+rutas_mes %>% 
+  ggplot2::ggplot(ggplot2::aes(x=mes, y=tiempo_uso))+
+  ggplot2::geom_col()
   
-results <- gmapsdistance::gmapsdistance(rutas_geo$origin_lat_long[1],rutas_geo$end_lat_long[1],mode="bicycling")
-
-
-
 ```
 
