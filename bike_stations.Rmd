@@ -237,9 +237,9 @@ Y por horas...
 ```{r}
 str(rutas_geo)
 rutas_hora <- rutas_geo %>% 
-  dplyr::mutate(H=lubridate::hour(starttime)) %>%
+  dplyr::mutate(H=lubridate::hour(stoptime)) %>%
   dplyr::mutate(Hor=(ifelse(H %in% (0:9),paste0(0,H), H))) %>% 
-  dplyr::mutate(M=lubridate::minute(starttime)) %>% 
+  dplyr::mutate(M=lubridate::minute(stoptime)) %>% 
   dplyr::mutate(Min=(ifelse(M %in% (0:9),paste0(0,M), M))) %>% 
   dplyr::group_by(Hor,Min) %>%
   dplyr::mutate(HM=paste0(Hor,":",Min)) %>%
@@ -248,7 +248,7 @@ rutas_hora <- rutas_geo %>%
 
 rutas_hora %>% 
   ggplot2::ggplot(ggplot2::aes(x=HM, y=tiempo_uso))+
-  ggplot2::geom_point()+
+  ggplot2::geom_point(alpha=1/3)+
   ggplot2::theme_bw()
 ```
 
